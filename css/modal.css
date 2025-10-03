@@ -1,3 +1,4 @@
+/* Estilos para Modales */
 .modal {
     display: none;
     position: fixed;
@@ -8,6 +9,7 @@
     height: 100%;
     background-color: rgba(0,0,0,0.5);
     animation: fadeIn 0.3s;
+    backdrop-filter: blur(5px);
 }
 
 @keyframes fadeIn {
@@ -19,21 +21,28 @@
     background-color: white;
     margin: 5% auto;
     padding: 30px;
-    border-radius: 10px;
+    border-radius: 15px;
     width: 90%;
     max-width: 500px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     animation: slideIn 0.3s;
     position: relative;
+    border: none;
 }
 
 @keyframes slideIn {
-    from { transform: translateY(-50px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from { 
+        transform: translateY(-50px); 
+        opacity: 0; 
+    }
+    to { 
+        transform: translateY(0); 
+        opacity: 1; 
+    }
 }
 
 .close {
-    color: #aaa;
+    color: #6c757d;
     float: right;
     font-size: 28px;
     font-weight: bold;
@@ -41,6 +50,8 @@
     position: absolute;
     right: 20px;
     top: 15px;
+    transition: color 0.3s;
+    line-height: 1;
 }
 
 .close:hover {
@@ -52,15 +63,141 @@
     color: #1976d2;
     border-bottom: 2px solid #e9ecef;
     padding-bottom: 10px;
+    font-size: 1.5rem;
 }
 
 .modal-actions {
     display: flex;
     gap: 10px;
     justify-content: flex-end;
-    margin-top: 20px;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #e9ecef;
 }
 
 .modal-actions .btn {
     min-width: 100px;
+    padding: 10px 20px;
+}
+
+/* Estilos específicos para formularios en modales */
+.modal .form-group {
+    margin-bottom: 20px;
+}
+
+.modal label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.modal input[type="text"],
+.modal input[type="number"],
+.modal select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: all 0.3s;
+    background-color: #fff;
+}
+
+.modal input[type="text"]:focus,
+.modal input[type="number"]:focus,
+.modal select:focus {
+    outline: none;
+    border-color: #1976d2;
+    box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+.modal input[type="checkbox"] {
+    margin-right: 8px;
+    transform: scale(1.2);
+}
+
+/* Estilos para checkboxes */
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.checkbox-group label {
+    margin-bottom: 0;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+/* Responsive para modales */
+@media (max-width: 768px) {
+    .modal-content {
+        margin: 10% auto;
+        padding: 20px;
+        width: 95%;
+    }
+    
+    .modal-actions {
+        flex-direction: column;
+    }
+    
+    .modal-actions .btn {
+        min-width: auto;
+        width: 100%;
+    }
+}
+
+/* Efectos de hover para botones en modales */
+.modal .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Estilos para campos requeridos */
+.modal input:required {
+    border-left: 3px solid #1976d2;
+}
+
+.modal input:invalid {
+    border-color: #dc3545;
+}
+
+.modal input:valid {
+    border-color: #28a745;
+}
+
+/* Animación para errores */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.modal input:invalid:focus {
+    animation: shake 0.3s;
+}
+
+/* Estilos para select personalizado */
+.modal select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
+}
+
+/* Mejoras visuales para modales */
+.modal-content {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.modal h3 {
+    background: linear-gradient(135deg, #1976d2, #1565c0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    border-bottom: 2px solid;
+    border-image: linear-gradient(135deg, #1976d2, #1565c0) 1;
 }
