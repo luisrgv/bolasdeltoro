@@ -1,8 +1,15 @@
 class ReportManager {
     constructor() {
         this.orderManager = new OrderManager();
-        this.currentDate = new Date();
         this.setupEventListeners();
+        this.setDefaultDate();
+    }
+
+    setDefaultDate() {
+        const today = new Date();
+        const todayFormatted = this.formatDateForInput(today);
+        document.getElementById('report-date').value = todayFormatted;
+        this.currentDate = today;
     }
 
     setupEventListeners() {
@@ -17,7 +24,8 @@ class ReportManager {
     loadReport(date = null) {
         const targetDate = date || new Date();
         this.currentDate = targetDate;
-        document.getElementById('report-date').value = this.formatDateForInput(targetDate);
+        const inputDate = this.formatDateForInput(targetDate);
+        document.getElementById('report-date').value = inputDate;
         this.generateReport();
     }
 
@@ -29,26 +37,16 @@ class ReportManager {
     }
 
     formatDateForDisplay(date) {
-        return date.toLocaleDateString('es-ES', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
+        return this.orderManager.getFullLocalDateTime(date.getTime()).date;
     }
 
-    formatTimeForDisplay(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleTimeString('es-ES', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-        });
+    formatTimeForDisplay(timestamp) {
+        return this.orderManager.getFullLocalDateTime(timestamp).time;
     }
 
     generateReport() {
-        const selectedDate = new Date(document.getElementById('report-date').value);
+        const selectedDate = document.getElementById('report-date').value;
+        
         const salesData = this.orderManager.getSalesDataByDate(selectedDate);
         const orders = this.orderManager.getOrdersByDate(selectedDate);
         
@@ -64,7 +62,6 @@ class ReportManager {
         const bestSeller = this.getBestSeller(salesData.products);
         document.getElementById('best-seller').textContent = bestSeller || '-';
 
-        // Estadísticas adicionales
         const avgOrderValue = salesData.totalOrders > 0 ? salesData.totalSales / salesData.totalOrders : 0;
         document.getElementById('avg-order-value').textContent = `$${avgOrderValue.toFixed(2)}`;
     }
@@ -109,7 +106,7 @@ class ReportManager {
                             <div class="sales-service">${product.serviceType}</div>
                         </div>
                         <div class="sales-quantity">${product.quantity} und</div>
-                        <div class="sales-price">$${product.total / product.quantity}</div>
+                        <div class="sales-price">$${(product.total / product.quantity).toFixed(2)}</div>
                         <div class="sales-total">$${product.total.toFixed(2)}</div>
                     </div>
                 `;
@@ -135,7 +132,7 @@ class ReportManager {
             </div>
         `;
 
-        orders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        orders.sort((a, b) => b.timestamp - a.timestamp)
             .forEach(order => {
                 html += this.createOrderCard(order);
             });
@@ -145,15 +142,14 @@ class ReportManager {
     }
 
     createOrderCard(order) {
-        const orderTime = this.formatTimeForDisplay(order.timestamp);
-        const orderDate = new Date(order.timestamp).toLocaleDateString('es-ES');
+        const dateTime = this.orderManager.getFullLocalDateTime(order.timestamp);
         
         return `
             <div class="order-card" data-order-id="${order.id}">
                 <div class="order-card-header">
                     <div class="order-info">
                         <div class="order-id">Pedido #${order.id.slice(-6)}</div>
-                        <div class="order-time">${orderDate} - ${orderTime}</div>
+                        <div class="order-time">${dateTime.shortDate} - ${dateTime.time}</div>
                     </div>
                     <div class="order-total-card">$${order.total.toFixed(2)}</div>
                     <div class="order-actions">
@@ -197,7 +193,6 @@ class ReportManager {
     }
 
     setupOrderActions() {
-        // Ver detalles del pedido
         document.querySelectorAll('.view-order').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const orderCard = e.target.closest('.order-card');
@@ -206,7 +201,6 @@ class ReportManager {
             });
         });
 
-        // Modificar pedido
         document.querySelectorAll('.edit-order').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const orderId = e.target.closest('.order-card').dataset.orderId;
@@ -214,7 +208,6 @@ class ReportManager {
             });
         });
 
-        // Cancelar pedido
         document.querySelectorAll('.cancel-order').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const orderId = e.target.closest('.order-card').dataset.orderId;
@@ -233,16 +226,10 @@ class ReportManager {
         }
 
         if (confirm('¿Estás seguro de que quieres modificar este pedido? Se eliminará del sistema y podrás recrearlo.')) {
-            // Eliminar el pedido actual
             this.orderManager.orders = orders.filter(o => o.id !== orderId);
             this.orderManager.saveOrders();
-            
-            // Actualizar datos de ventas
-            this.updateSalesDataAfterCancellation(order);
-            
-            // Recargar reporte
+            this.orderManager.updateSalesDataAfterCancellation(order);
             this.generateReport();
-            
             alert('Pedido eliminado. Ahora puedes recrearlo en la pantalla de pedidos.');
         }
     }
@@ -252,109 +239,16 @@ class ReportManager {
             return;
         }
 
-        const orders = this.orderManager.orders;
-        const order = orders.find(o => o.id === orderId);
-        
-        if (!order) {
-            alert('Pedido no encontrado');
-            return;
-        }
-
-        // Eliminar el pedido
-        this.orderManager.orders = orders.filter(o => o.id !== orderId);
-        this.orderManager.saveOrders();
-        
-        // Actualizar datos de ventas
-        this.updateSalesDataAfterCancellation(order);
-        
-        // Recargar reporte
-        this.generateReport();
-        
-        alert('Pedido cancelado exitosamente.');
-    }
-
-    updateSalesDataAfterCancellation(order) {
-        const orderDate = new Date(order.timestamp).toLocaleDateString('es-ES');
-        const salesData = JSON.parse(localStorage.getItem('salesData')) || {};
-        
-        if (salesData[orderDate]) {
-            // Restar del total de ventas
-            salesData[orderDate].totalSales -= order.total;
-            salesData[orderDate].totalOrders -= 1;
-            
-            // Restar productos individuales
-            order.items.forEach(item => {
-                const productKey = `${item.productName}-${item.serviceType}`;
-                if (salesData[orderDate].products[productKey]) {
-                    salesData[orderDate].products[productKey].quantity -= item.quantity;
-                    salesData[orderDate].products[productKey].total -= item.total;
-                    
-                    // Si la cantidad llega a 0, eliminar el producto
-                    if (salesData[orderDate].products[productKey].quantity <= 0) {
-                        delete salesData[orderDate].products[productKey];
-                    }
-                }
-            });
-            
-            localStorage.setItem('salesData', JSON.stringify(salesData));
+        if (this.orderManager.cancelOrder(orderId)) {
+            this.generateReport();
+            alert('Pedido cancelado exitosamente.');
+        } else {
+            alert('Error: Pedido no encontrado.');
         }
     }
 
     exportToExcel() {
-        const selectedDate = new Date(document.getElementById('report-date').value);
-        const salesData = this.orderManager.getSalesDataByDate(selectedDate);
-        const orders = this.orderManager.getOrdersByDate(selectedDate);
-        
-        // Crear contenido CSV
-        let csvContent = "REPORTE DE VENTAS - LAS BOLAS DEL TORO\n";
-        csvContent += `Fecha: ${this.formatDateForDisplay(selectedDate)}\n\n`;
-        
-        // Resumen
-        csvContent += "RESUMEN DEL DÍA\n";
-        csvContent += `Total Ventas,$${salesData.totalSales.toFixed(2)}\n`;
-        csvContent += `Total Pedidos,${salesData.totalOrders}\n`;
-        csvContent += `Valor Promedio por Pedido,$${(salesData.totalSales / salesData.totalOrders).toFixed(2)}\n\n`;
-        
-        // Productos vendidos
-        csvContent += "PRODUCTOS VENDIDOS\n";
-        csvContent += "Producto,Servicio,Cantidad,Precio Unitario,Total\n";
-        
-        Object.values(salesData.products)
-            .sort((a, b) => b.quantity - a.quantity)
-            .forEach(product => {
-                const unitPrice = product.total / product.quantity;
-                csvContent += `"${product.name}","${product.serviceType}",${product.quantity},$${unitPrice.toFixed(2)},$${product.total.toFixed(2)}\n`;
-            });
-        
-        csvContent += "\n";
-        
-        // Detalle de pedidos
-        csvContent += "DETALLE DE PEDIDOS\n";
-        csvContent += "Pedido ID,Fecha,Hora,Total,Items\n";
-        
-        orders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-            .forEach(order => {
-                const orderDate = new Date(order.timestamp).toLocaleDateString('es-ES');
-                const orderTime = this.formatTimeForDisplay(order.timestamp);
-                const itemsSummary = order.items.map(item => 
-                    `${item.quantity}x ${item.productName} (${item.serviceType})`
-                ).join('; ');
-                
-                csvContent += `"${order.id}","${orderDate}","${orderTime}",$${order.total.toFixed(2)},"${itemsSummary}"\n`;
-            });
-        
-        // Crear y descargar archivo
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        
-        const fileName = `reporte_ventas_${selectedDate.toISOString().split('T')[0]}.csv`;
-        link.setAttribute('href', url);
-        link.setAttribute('download', fileName);
-        link.style.visibility = 'hidden';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const selectedDate = document.getElementById('report-date').value;
+        this.orderManager.generateExcelReport(selectedDate);
     }
 }

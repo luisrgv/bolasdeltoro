@@ -13,54 +13,61 @@ class OrderManager {
     }
 
     saveOrder(orderItems) {
-        // Usar fecha/hora de Bogotá/Lima/Quito (UTC-5)
         const now = new Date();
-        const bogotaTime = new Date(now.getTime() - (5 * 60 * 60 * 1000)); // UTC-5
         
         const order = {
             id: 'order-' + Date.now(),
             items: [...orderItems],
             total: orderItems.reduce((sum, item) => sum + item.total, 0),
-            timestamp: bogotaTime.toISOString(),
-            date: this.getBogotaDateString(),
-            time: this.getBogotaTimeString(),
+            timestamp: now.getTime(), // Guardar como timestamp en milisegundos
+            date: this.getLocalDateString(now),
+            time: this.getLocalTimeString(now),
             status: 'completed'
         };
 
         this.orders.push(order);
         this.saveOrders();
         this.updateSalesData(order);
+    }
+
+    getLocalDateString(date) {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+
+    getLocalTimeString(date) {
+        const hours = date.getHours();
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'p. m.' : 'a. m.';
+        const formattedHours = hours % 12 || 12;
+        return `${formattedHours}:${minutes}:${seconds} ${ampm}`;
+    }
+
+    getFullLocalDateTime(timestamp) {
+        const date = new Date(timestamp);
+        const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
         
-        console.log('Pedido guardado:', order);
-    }
-
-    // Obtener fecha en formato Latinoamérica (Bogotá/Lima/Quito)
-    getBogotaDateString() {
-        const now = new Date();
-        const bogotaTime = new Date(now.getTime() - (5 * 60 * 60 * 1000));
-        return bogotaTime.toLocaleDateString('es', {
-            timeZone: 'America/Bogota',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-        });
-    }
-
-    // Obtener hora en formato Latinoamérica
-    getBogotaTimeString() {
-        const now = new Date();
-        const bogotaTime = new Date(now.getTime() - (5 * 60 * 60 * 1000));
-        return bogotaTime.toLocaleTimeString('es', {
-            timeZone: 'America/Bogota',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-        });
+        const dayName = days[date.getDay()];
+        const day = date.getDate();
+        const monthName = months[date.getMonth()];
+        const year = date.getFullYear();
+        
+        const time = this.getLocalTimeString(date);
+        const shortDate = this.getLocalDateString(date);
+        
+        return {
+            date: `${dayName} ${day} de ${monthName} de ${year}`,
+            time: time,
+            shortDate: shortDate
+        };
     }
 
     updateSalesData(order) {
-        const today = order.date; // Usar la fecha ya corregida
+        const today = order.date;
         const salesData = JSON.parse(localStorage.getItem('salesData')) || {};
         
         if (!salesData[today]) {
@@ -71,11 +78,9 @@ class OrderManager {
             };
         }
 
-        // Actualizar totales del día
         salesData[today].totalSales += order.total;
         salesData[today].totalOrders += 1;
 
-        // Actualizar ventas por producto
         order.items.forEach(item => {
             const productKey = `${item.productName}-${item.serviceType}`;
             
@@ -93,7 +98,6 @@ class OrderManager {
         });
 
         localStorage.setItem('salesData', JSON.stringify(salesData));
-        console.log('Datos de ventas actualizados para:', today);
     }
 
     getOrdersByDate(date) {
@@ -114,74 +118,32 @@ class OrderManager {
         };
     }
 
-    // Formatear fecha para comparación (DD/MM/YYYY)
-    formatDateForComparison(dateString) {
-        if (!dateString) return '';
+    formatDateForComparison(dateInput) {
+        if (!dateInput) return '';
         
-        // Si es un objeto Date
-        if (dateString instanceof Date) {
-            return dateString.toLocaleDateString('es', {
-                timeZone: 'America/Bogota',
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit'
-            });
+        if (dateInput instanceof Date) {
+            return this.getLocalDateString(dateInput);
         }
         
-        // Si ya es string en formato latino
-        if (dateString.includes('/')) {
-            return dateString;
+        if (dateInput.includes('/')) {
+            return dateInput;
         }
         
-        // Si viene en formato YYYY-MM-DD (input date)
-        if (dateString.includes('-')) {
-            const [year, month, day] = dateString.split('-');
+        if (dateInput.includes('-')) {
+            const [year, month, day] = dateInput.split('-');
             return `${day}/${month}/${year}`;
         }
         
-        return dateString;
+        return dateInput;
     }
 
-    // Convertir fecha de input a formato latino
     formatInputDateToLatino(dateString) {
-        if (!dateString) return this.getBogotaDateString();
+        if (!dateString) {
+            return this.getLocalDateString(new Date());
+        }
         
-        const date = new Date(dateString);
-        return date.toLocaleDateString('es', {
-            timeZone: 'America/Bogota',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-        });
-    }
-
-    // Obtener fecha y hora completas en formato latino
-    getFullLatinoDateTime(timestamp) {
-        const date = new Date(timestamp);
-        const bogotaTime = new Date(date.getTime() - (5 * 60 * 60 * 1000));
-        
-        return {
-            date: bogotaTime.toLocaleDateString('es', {
-                timeZone: 'America/Bogota',
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            }),
-            time: bogotaTime.toLocaleTimeString('es', {
-                timeZone: 'America/Bogota',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: true
-            }),
-            shortDate: bogotaTime.toLocaleDateString('es', {
-                timeZone: 'America/Bogota',
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit'
-            })
-        };
+        const [year, month, day] = dateString.split('-');
+        return `${day}/${month}/${year}`;
     }
 
     generateExcelReport(date) {
@@ -189,17 +151,14 @@ class OrderManager {
         const orders = this.getOrdersByDate(date);
         const latinoDate = this.formatInputDateToLatino(date);
         
-        // Crear contenido CSV
         let csvContent = "REPORTE DE VENTAS - LAS BOLAS DEL TORO\n";
-        csvContent += `Fecha: ${this.getFullLatinoDateTime(new Date(date)).date}\n\n`;
+        csvContent += `Fecha: ${this.getFullLocalDateTime(new Date(date).getTime()).date}\n\n`;
         
-        // Resumen
         csvContent += "RESUMEN DEL DÍA\n";
         csvContent += `Total Ventas,$${salesData.totalSales.toFixed(2)}\n`;
         csvContent += `Total Pedidos,${salesData.totalOrders}\n`;
         csvContent += `Valor Promedio por Pedido,$${salesData.totalOrders > 0 ? (salesData.totalSales / salesData.totalOrders).toFixed(2) : '0.00'}\n\n`;
         
-        // Productos vendidos
         csvContent += "PRODUCTOS VENDIDOS\n";
         csvContent += "Producto,Servicio,Cantidad,Precio Unitario Promedio,Total\n";
         
@@ -212,13 +171,12 @@ class OrderManager {
         
         csvContent += "\n";
         
-        // Detalle de pedidos
         csvContent += "DETALLE DE PEDIDOS\n";
         csvContent += "ID Pedido,Fecha,Hora,Total,Items Detallados\n";
         
-        orders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        orders.sort((a, b) => b.timestamp - a.timestamp)
             .forEach(order => {
-                const dateTime = this.getFullLatinoDateTime(order.timestamp);
+                const dateTime = this.getFullLocalDateTime(order.timestamp);
                 const itemsSummary = order.items.map(item => 
                     `${item.quantity}x ${item.productName} (${item.serviceType}) - $${item.total.toFixed(2)}`
                 ).join('; ');
@@ -226,7 +184,6 @@ class OrderManager {
                 csvContent += `"${order.id}","${dateTime.shortDate}","${dateTime.time}",$${order.total.toFixed(2)},"${itemsSummary}"\n`;
             });
         
-        // Crear y descargar archivo
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
@@ -239,11 +196,8 @@ class OrderManager {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
-        console.log('Reporte exportado:', fileName);
     }
 
-    // Resto de métodos permanecen igual...
     getAllSalesData() {
         return JSON.parse(localStorage.getItem('salesData')) || {};
     }
@@ -286,8 +240,7 @@ class OrderManager {
         
         const hours = {};
         orders.forEach(order => {
-            const dateTime = this.getFullLatinoDateTime(order.timestamp);
-            const hour = dateTime.time.split(':')[0];
+            const hour = new Date(order.timestamp).getHours();
             hours[hour] = (hours[hour] || 0) + 1;
         });
         
@@ -307,7 +260,7 @@ class OrderManager {
     }
 
     updateSalesDataAfterCancellation(order) {
-        const orderDate = order.date; // Usar la fecha ya corregida
+        const orderDate = order.date;
         const salesData = JSON.parse(localStorage.getItem('salesData')) || {};
         
         if (salesData[orderDate]) {
