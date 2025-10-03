@@ -13,12 +13,17 @@ class OrderManager {
     }
 
     saveOrder(orderItems) {
+        // Usar fecha/hora de Bogotá/Lima/Quito (UTC-5)
+        const now = new Date();
+        const bogotaTime = new Date(now.getTime() - (5 * 60 * 60 * 1000)); // UTC-5
+        
         const order = {
             id: 'order-' + Date.now(),
             items: [...orderItems],
             total: orderItems.reduce((sum, item) => sum + item.total, 0),
-            timestamp: new Date().toISOString(),
-            date: new Date().toLocaleDateString('es-ES'),
+            timestamp: bogotaTime.toISOString(),
+            date: this.getBogotaDateString(),
+            time: this.getBogotaTimeString(),
             status: 'completed'
         };
 
@@ -29,8 +34,33 @@ class OrderManager {
         console.log('Pedido guardado:', order);
     }
 
+    // Obtener fecha en formato Latinoamérica (Bogotá/Lima/Quito)
+    getBogotaDateString() {
+        const now = new Date();
+        const bogotaTime = new Date(now.getTime() - (5 * 60 * 60 * 1000));
+        return bogotaTime.toLocaleDateString('es', {
+            timeZone: 'America/Bogota',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+    }
+
+    // Obtener hora en formato Latinoamérica
+    getBogotaTimeString() {
+        const now = new Date();
+        const bogotaTime = new Date(now.getTime() - (5 * 60 * 60 * 1000));
+        return bogotaTime.toLocaleTimeString('es', {
+            timeZone: 'America/Bogota',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+    }
+
     updateSalesData(order) {
-        const today = new Date().toLocaleDateString('es-ES');
+        const today = order.date; // Usar la fecha ya corregida
         const salesData = JSON.parse(localStorage.getItem('salesData')) || {};
         
         if (!salesData[today]) {
@@ -67,15 +97,15 @@ class OrderManager {
     }
 
     getOrdersByDate(date) {
-        const targetDate = new Date(date).toLocaleDateString('es-ES');
+        const targetDate = this.formatDateForComparison(date);
         return this.orders.filter(order => {
-            const orderDate = new Date(order.timestamp).toLocaleDateString('es-ES');
+            const orderDate = this.formatDateForComparison(order.date);
             return orderDate === targetDate;
         });
     }
 
     getSalesDataByDate(date) {
-        const targetDate = new Date(date).toLocaleDateString('es-ES');
+        const targetDate = this.formatDateForComparison(date);
         const salesData = JSON.parse(localStorage.getItem('salesData')) || {};
         return salesData[targetDate] || {
             totalSales: 0,
@@ -84,23 +114,84 @@ class OrderManager {
         };
     }
 
-    getAllSalesData() {
-        return JSON.parse(localStorage.getItem('salesData')) || {};
+    // Formatear fecha para comparación (DD/MM/YYYY)
+    formatDateForComparison(dateString) {
+        if (!dateString) return '';
+        
+        // Si es un objeto Date
+        if (dateString instanceof Date) {
+            return dateString.toLocaleDateString('es', {
+                timeZone: 'America/Bogota',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+        }
+        
+        // Si ya es string en formato latino
+        if (dateString.includes('/')) {
+            return dateString;
+        }
+        
+        // Si viene en formato YYYY-MM-DD (input date)
+        if (dateString.includes('-')) {
+            const [year, month, day] = dateString.split('-');
+            return `${day}/${month}/${year}`;
+        }
+        
+        return dateString;
     }
 
-    // Método para generar reporte Excel
+    // Convertir fecha de input a formato latino
+    formatInputDateToLatino(dateString) {
+        if (!dateString) return this.getBogotaDateString();
+        
+        const date = new Date(dateString);
+        return date.toLocaleDateString('es', {
+            timeZone: 'America/Bogota',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+    }
+
+    // Obtener fecha y hora completas en formato latino
+    getFullLatinoDateTime(timestamp) {
+        const date = new Date(timestamp);
+        const bogotaTime = new Date(date.getTime() - (5 * 60 * 60 * 1000));
+        
+        return {
+            date: bogotaTime.toLocaleDateString('es', {
+                timeZone: 'America/Bogota',
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            }),
+            time: bogotaTime.toLocaleTimeString('es', {
+                timeZone: 'America/Bogota',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            }),
+            shortDate: bogotaTime.toLocaleDateString('es', {
+                timeZone: 'America/Bogota',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            })
+        };
+    }
+
     generateExcelReport(date) {
         const salesData = this.getSalesDataByDate(date);
         const orders = this.getOrdersByDate(date);
+        const latinoDate = this.formatInputDateToLatino(date);
         
         // Crear contenido CSV
         let csvContent = "REPORTE DE VENTAS - LAS BOLAS DEL TORO\n";
-        csvContent += `Fecha: ${new Date(date).toLocaleDateString('es-ES', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-        })}\n\n`;
+        csvContent += `Fecha: ${this.getFullLatinoDateTime(new Date(date)).date}\n\n`;
         
         // Resumen
         csvContent += "RESUMEN DEL DÍA\n";
@@ -127,18 +218,12 @@ class OrderManager {
         
         orders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
             .forEach(order => {
-                const orderDate = new Date(order.timestamp).toLocaleDateString('es-ES');
-                const orderTime = new Date(order.timestamp).toLocaleTimeString('es-ES', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: true
-                });
+                const dateTime = this.getFullLatinoDateTime(order.timestamp);
                 const itemsSummary = order.items.map(item => 
                     `${item.quantity}x ${item.productName} (${item.serviceType}) - $${item.total.toFixed(2)}`
                 ).join('; ');
                 
-                csvContent += `"${order.id}","${orderDate}","${orderTime}",$${order.total.toFixed(2)},"${itemsSummary}"\n`;
+                csvContent += `"${order.id}","${dateTime.shortDate}","${dateTime.time}",$${order.total.toFixed(2)},"${itemsSummary}"\n`;
             });
         
         // Crear y descargar archivo
@@ -146,7 +231,7 @@ class OrderManager {
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         
-        const fileName = `reporte_ventas_${new Date(date).toISOString().split('T')[0]}.csv`;
+        const fileName = `reporte_ventas_${latinoDate.replace(/\//g, '-')}.csv`;
         link.setAttribute('href', url);
         link.setAttribute('download', fileName);
         link.style.visibility = 'hidden';
@@ -158,9 +243,13 @@ class OrderManager {
         console.log('Reporte exportado:', fileName);
     }
 
-    // Métodos adicionales para estadísticas
+    // Resto de métodos permanecen igual...
+    getAllSalesData() {
+        return JSON.parse(localStorage.getItem('salesData')) || {};
+    }
+
     getCompleteSalesData(date) {
-        const targetDate = new Date(date).toLocaleDateString('es-ES');
+        const targetDate = this.formatInputDateToLatino(date);
         const salesData = this.getSalesDataByDate(date);
         const orders = this.getOrdersByDate(date);
         
@@ -197,14 +286,14 @@ class OrderManager {
         
         const hours = {};
         orders.forEach(order => {
-            const hour = new Date(order.timestamp).getHours();
+            const dateTime = this.getFullLatinoDateTime(order.timestamp);
+            const hour = dateTime.time.split(':')[0];
             hours[hour] = (hours[hour] || 0) + 1;
         });
         
         return Object.keys(hours).reduce((a, b) => hours[a] > hours[b] ? a : b);
     }
 
-    // Método para cancelar pedido
     cancelOrder(orderId) {
         const orderIndex = this.orders.findIndex(order => order.id === orderId);
         if (orderIndex === -1) return false;
@@ -213,29 +302,24 @@ class OrderManager {
         this.orders.splice(orderIndex, 1);
         this.saveOrders();
         
-        // Actualizar datos de ventas
         this.updateSalesDataAfterCancellation(cancelledOrder);
-        
         return true;
     }
 
     updateSalesDataAfterCancellation(order) {
-        const orderDate = new Date(order.timestamp).toLocaleDateString('es-ES');
+        const orderDate = order.date; // Usar la fecha ya corregida
         const salesData = JSON.parse(localStorage.getItem('salesData')) || {};
         
         if (salesData[orderDate]) {
-            // Restar del total de ventas
             salesData[orderDate].totalSales -= order.total;
             salesData[orderDate].totalOrders -= 1;
             
-            // Restar productos individuales
             order.items.forEach(item => {
                 const productKey = `${item.productName}-${item.serviceType}`;
                 if (salesData[orderDate].products[productKey]) {
                     salesData[orderDate].products[productKey].quantity -= item.quantity;
                     salesData[orderDate].products[productKey].total -= item.total;
                     
-                    // Si la cantidad llega a 0, eliminar el producto
                     if (salesData[orderDate].products[productKey].quantity <= 0) {
                         delete salesData[orderDate].products[productKey];
                     }
