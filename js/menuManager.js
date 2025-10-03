@@ -10,6 +10,11 @@ class MenuManager {
         
         categoriesContainer.innerHTML = '';
         
+        if (!menuData || !menuData.categories || menuData.categories.length === 0) {
+            categoriesContainer.innerHTML = '<div class="empty-order">No hay categorías en el menú</div>';
+            return;
+        }
+        
         menuData.categories.forEach(category => {
             const categoryCard = document.createElement('div');
             categoryCard.className = 'category-card';
@@ -32,7 +37,7 @@ class MenuManager {
     }
 
     renderProducts(products, categoryId) {
-        if (products.length === 0) {
+        if (!products || products.length === 0) {
             return '<div class="empty-order">No hay productos en esta categoría</div>';
         }
 
@@ -92,6 +97,7 @@ class MenuManager {
         }
         
         modal.style.display = 'block';
+        nameInput.focus();
     }
 
     closeCategoryModal() {
@@ -107,7 +113,7 @@ class MenuManager {
             return;
         }
 
-        const menuData = JSON.parse(localStorage.getItem('menuData'));
+        const menuData = JSON.parse(localStorage.getItem('menuData')) || { categories: [] };
         
         if (this.editingCategory) {
             // Editar categoría existente
@@ -118,7 +124,7 @@ class MenuManager {
         } else {
             // Agregar nueva categoría
             const newCategory = {
-                id: Date.now().toString(),
+                id: 'cat-' + Date.now(),
                 name: name,
                 products: []
             };
@@ -128,7 +134,11 @@ class MenuManager {
         localStorage.setItem('menuData', JSON.stringify(menuData));
         this.closeCategoryModal();
         this.loadMenu();
-        restaurantApp.loadCategories(); // Actualizar en la pantalla de pedidos
+        
+        // Actualizar en la pantalla de pedidos si existe
+        if (window.restaurantApp && typeof window.restaurantApp.loadCategories === 'function') {
+            window.restaurantApp.loadCategories();
+        }
     }
 
     editCategory(categoryId) {
@@ -150,7 +160,11 @@ class MenuManager {
         
         localStorage.setItem('menuData', JSON.stringify(menuData));
         this.loadMenu();
-        restaurantApp.loadCategories(); // Actualizar en la pantalla de pedidos
+        
+        // Actualizar en la pantalla de pedidos si existe
+        if (window.restaurantApp && typeof window.restaurantApp.loadCategories === 'function') {
+            window.restaurantApp.loadCategories();
+        }
     }
 
     openProductModal(categoryId = null, product = null) {
@@ -160,7 +174,7 @@ class MenuManager {
         const categorySelect = document.getElementById('product-category');
         
         // Cargar categorías en el select
-        const menuData = JSON.parse(localStorage.getItem('menuData'));
+        const menuData = JSON.parse(localStorage.getItem('menuData')) || { categories: [] };
         categorySelect.innerHTML = '';
         menuData.categories.forEach(category => {
             const option = document.createElement('option');
@@ -182,10 +196,11 @@ class MenuManager {
             document.getElementById('product-price-servir').value = '';
             document.getElementById('product-price-llevar').value = '';
             document.getElementById('product-available').checked = true;
-            categorySelect.value = categoryId || menuData.categories[0].id;
+            categorySelect.value = categoryId || (menuData.categories[0] ? menuData.categories[0].id : '');
         }
         
         modal.style.display = 'block';
+        document.getElementById('product-name').focus();
     }
 
     closeProductModal() {
@@ -200,17 +215,26 @@ class MenuManager {
         const priceLlevar = parseFloat(document.getElementById('product-price-llevar').value);
         const available = document.getElementById('product-available').checked;
 
-        if (!name || !priceServir || !priceLlevar) {
+        if (!name || isNaN(priceServir) || isNaN(priceLlevar)) {
             alert('Por favor completa todos los campos requeridos');
             return;
         }
 
-        const menuData = JSON.parse(localStorage.getItem('menuData'));
+        if (priceServir < 0 || priceLlevar < 0) {
+            alert('Los precios no pueden ser negativos');
+            return;
+        }
+
+        const menuData = JSON.parse(localStorage.getItem('menuData')) || { categories: [] };
         const category = menuData.categories.find(cat => cat.id === categoryId);
         
         if (!category) {
             alert('Categoría no encontrada');
             return;
+        }
+
+        if (!category.products) {
+            category.products = [];
         }
 
         if (this.editingProduct) {
@@ -225,7 +249,7 @@ class MenuManager {
         } else {
             // Agregar nuevo producto
             const newProduct = {
-                id: Date.now().toString(),
+                id: 'prod-' + Date.now(),
                 name: name,
                 priceServir: priceServir,
                 priceLlevar: priceLlevar,
@@ -237,7 +261,11 @@ class MenuManager {
         localStorage.setItem('menuData', JSON.stringify(menuData));
         this.closeProductModal();
         this.loadMenu();
-        restaurantApp.loadCategories(); // Actualizar en la pantalla de pedidos
+        
+        // Actualizar en la pantalla de pedidos si existe
+        if (window.restaurantApp && typeof window.restaurantApp.loadCategories === 'function') {
+            window.restaurantApp.loadCategories();
+        }
     }
 
     editProduct(categoryId, productId) {
@@ -260,11 +288,15 @@ class MenuManager {
         const menuData = JSON.parse(localStorage.getItem('menuData'));
         const category = menuData.categories.find(cat => cat.id === categoryId);
         
-        if (category) {
+        if (category && category.products) {
             category.products = category.products.filter(prod => prod.id !== productId);
             localStorage.setItem('menuData', JSON.stringify(menuData));
             this.loadMenu();
-            restaurantApp.loadCategories(); // Actualizar en la pantalla de pedidos
+            
+            // Actualizar en la pantalla de pedidos si existe
+            if (window.restaurantApp && typeof window.restaurantApp.loadCategories === 'function') {
+                window.restaurantApp.loadCategories();
+            }
         }
     }
 }
